@@ -10,7 +10,9 @@
 // These are the names of all the keras models that are defined within most vanilla
 // workflow, a user wishing to add their own models must augment this list to ensure
 // that this list is appropriately updated.
-i.keraslist:`regkeras`multikeras`binarykeras`Pytorch
+i.keraslist:`regkeras`multikeras`binarykeras
+i.torchlist:`Pytorch
+i.deepmdlist:i.keraslist,i.torchlist
 
 /. r > the predicted values for a given model as applied to input data
 fitscore:{[d;s;mtype]

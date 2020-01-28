@@ -93,7 +93,7 @@ i.normaldefault:{`xv`gs`funcs`prf`scf`seed`saveopt`hld`tts`sz`sigfeats!
 /* fnm  = name of the base representation of the function to be applied (reg/multi/bin)
 /. r    > score for the model based on the predictions on test data
 i.scorepred:{[data;bmn;mdl;scf;fnm]
-  pred:$[bmn in i.keraslist;
+  pred:$[bmn in i.deepmdlist;
          // Formatting of first param is a result of previous implementation choices
          get[".aml.",fnm,"predict"][(0n;(data 2;0n));mdl];
          mdl[`:predict][data 2]`];
@@ -113,6 +113,8 @@ i.savemdl:{[bmn;bmo;mdls;nms]
       (joblib[`:dump][bmo;fname,"/",string[bmn]];-1"Saving down ",string[bmn]," model to ",mo);
     (`keras=?[mdls;enlist(=;`model;bmn,());();`lib])0;
       (bmo[`:save][fname,"/",string[bmn],".h5"];-1"Saving down ",string[bmn]," model to ",mo);
+     (`pytorch=?[mdls;enlist(=;`model;bmn,());();`lib])0;
+      (torch[`:save][bmo;fname,"/",string[bmn]];-1"Saving down ",string[bmn]," model to ",mo);
     -1"Saving of non keras/sklearn models types is not currently supported"];
   }
 
@@ -146,8 +148,8 @@ i.updmodels:{[mdls;tgt]
 // These are a list of models which are deterministic and thus which do not need to be grid-searched 
 // at present this should include the Keras models as a sufficient tuning method
 // has yet to be implemented
-if[1~checkimport[];i.keraslist:`null];
-i.excludelist:i.keraslist,`GaussianNB`LinearRegression;
+if[1~checkimport[];i.deepmdlist:`null];
+i.excludelist:i.deepmdlist,`GaussianNB`LinearRegression;
 
 // Dictionary with mappings for console printing to reduce clutter in .aml.runexample
 i.runout:`col`pre`sig`slct`tot`ex`gs`sco`save!

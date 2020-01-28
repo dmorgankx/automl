@@ -87,6 +87,7 @@ new:{[t;fp]
   // Relevant python functionality for loading of models
   skload:.p.import[`joblib][`:load];
   if[0~checkimport[];krload:.p.import[`keras.models][`:load_model]];
+  trchload:torch[`:load];
   // Retrieve the metadata from a file path based on the run date/time
   metadata:i.getmeta[i.ssrwin[path,"/outputs/",fp,"/config/metadata"]];
   typ:metadata`typ;
@@ -96,13 +97,14 @@ new:{[t;fp]
     i.freshproc[t;metadata];
     '`$"This form of operation is not currently supported"
     ];
-  $[(mp:metadata[`pylib])in `sklearn`keras;
+  $[(mp:metadata[`pylib])in `sklearn`keras`pytorch;
     // Apply the relevant saved down model to new data
     [fp_upd:i.ssrwin[path,"/outputs/",fp,"/models/",string metadata[`best_model]];
      if[bool:(mdl:metadata[`best_model])in i.keraslist;fp_upd,:".h5"];
-     model:$[mp~`sklearn;skload;krload]fp_upd;
-     $[bool;
-       [fnm:neg[5]_string lower mdl;get[".aml.",fnm,"predict"][(0n;(data;0n));model]];
+     model:$[mp~`sklearn;skload;mp~`keras;krload;trchload]fp_upd;
+     if[mdl in i.torchlist;model[`:eval][]];
+     $[bool|trch:metadata[`best_model]in i.torchlist;
+       [fnm:$[trch;2;neg[5]]_string lower mdl;get[".aml.",fnm,"predict"][(0n;(data;0n));model]];
        model[`:predict;<]data]];
     '`$"The current model type you are attempting to apply is not currently supported"]
   }
