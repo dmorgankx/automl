@@ -35,13 +35,27 @@ conftab:{(`$"true_",/:sk)!flip(`$"pred_",/:sk:string key m)!flip value m:confmat
 // Expected input is now at minimum t:enlist[`val]!enlist num, while for testing on the holdout sets this
 // should be include the scoring function and ordering the model requires to find the best model
 // `val`scf`ord!(0.2;`.ml.mse;asc) for example
+// --NB-- must be defined in below order as `gs.apply` is called outside `.ml.gs`
+i.gsapply:{[xv;k;n;x;y;f;p]
+  tot:exec max n from cmb:update n:i+1 from p:key[p]!/:1_'(::)cross/value p;
+  if[1<tot;-1"Performing grid search for ",string[tot]," combinations of hyperparameter"];
+  pset:{[xv;f;tot;prm]
+    if[b:0=prm[`n]mod 5;-1"Applying hyperparameter set ",string[prm`n],"/",string tot];
+    start:.z.t;r:xv f pykwargs@-1_prm;tm:.z.t-start;if[b;-1"Running model took ",string tm];(tm;r)};
+  (p,'([]time:`long$r[;0]))!.[;(::;1)]r:pset[xv[k;n;x;y];f;tot]@'cmb}
+
 gs:1_{[gs;k;n;x;y;f;p;t]
- if[t[`val]=0;:gs[k;n;x;y;f;p]];
- i:(0,floor count[y]*1-abs t[`val])_$[t[`val]<0;xv.i.shuffle;til count@]y;
- (r;pr;[$[type[fn:get t`scf]in(100h;104h);
-          [pykwargs pr:first key t[`ord] fn[;].''];
-          [pykwargs pr:first key desc avg each]] r:gs[k;n;x i 0;y i 0;f;p]](x;y)@\:/:i)
- }@'{[xv;k;n;x;y;f;p]p!(xv[k;n;x;y]f pykwargs@)@'p:key[p]!/:1_'(::)cross/value p}@'xv.j
+  if[0=t`val;:gs[k;n;x;y;f;p]];
+  i:(0,floor count[y]*1-abs t`val)_$[0>t`val;xv.i.shuffle;til count@]y;
+  scf:$[type[fn:get t`scf]in 100 104h;i.balancesco[;fn;t,:enlist[`scl]!enlist 1];desc avg each];
+  ((delete time from key r)!value r;pr;(pykwargs pr:first key scf r:gs[k;n;x i 0;y i 0;f;p])(x;y)@\:/:i)
+  }@'i.gsapply@'xv.j
+
+i.balancesco:{[r;fn;t]
+  s:{(delete time from key x)!update time:key[x]`time from([]score:value x)}t[`ord]avg each fn[;].''r;
+  t[`ord]key[s]!i.timescore[t`scl]value s};
+i.timescore:{[x;y]select .5*(score*x)+(1-x)%time from .ml.i.ap[{x%max x};y]}
+
 
 // Utilities for functions to be added to the toolkit
 i.infrep:{

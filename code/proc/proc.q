@@ -17,7 +17,8 @@ proc.runmodels:{[data;tgt;mdls;cnms;p;dt;fpath]
   xv_tstart:.z.T;
   // Complete a seeded cross validation on training sets producing the predictions with associated 
   // real values. This allows the best models to be chosen based on relevant user defined metric 
-  p1:proc.xv.seed[xtrn;ytrn;p]'[mdls];
+  -1"Performing ",string[p[`xv]1]," fold cross validation for ",string[n:count mdls]," models";
+  p1:proc.xv.seed[xtrn;ytrn;p;n]'[mdls;1+til count mdls];
   scf:i.scfn[p;mdls];
   ord:proc.i.ord scf;
   -1"\nScores for all models, using ",string scf;

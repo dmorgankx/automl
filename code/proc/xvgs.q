@@ -9,21 +9,25 @@
 
 // Seeded cross-validation function, designed to ensure that models will be consistent
 // from run to run in order to accurately assess the benefit of updates to parameters
-proc.xv.seed:{[xtrn;ytrn;p;mdls]
-  sk:mdls[`lib]~`sklearn;
+proc.xv.seed:{[xtrn;ytrn;p;tot;mdl;n]
+  -1"Running model ",string[n],"/",string[tot]," - ",string mdl`model;
+  sk:mdl[`lib]~`sklearn;
   system"S ",string p`seed;
   // Add a random state to a model if denoted by the flat file definition of the models
   // this needs to be handled differently for sklearn and keras models
-  s:$[ms:mdls[`seed]~`seed;
-      $[sk;enlist[`random_state]!enlist p`seed;(p[`seed],mdls[`typ])];
+  s:$[ms:mdl[`seed]~`seed;
+      $[sk;enlist[`random_state]!enlist p`seed;(p[`seed],mdl[`typ])];
       ::];
-  $[ms&sk;
+  start:.z.t;
+  r:$[ms&sk;
     // Grid search version of the cross-validation is completed if a random seed
     // and the model is from sklearn, this is in order to incorporate the random state definition.
     // Final parameter upd was required as dict for grid search to be as flexible as possible
-    first value get[p[`gs]0][p[`gs]1;1;xtrn;ytrn;p[`prf]mdls`minit;s;enlist[`val]!enlist 0];
+    first value get[p[`gs]0][p[`gs]1;1;xtrn;ytrn;p[`prf]mdl`minit;s;enlist[`val]!enlist 0];
     // Otherwise a vanilla cross validation is performed
-    get[p[`xv]0][p[`xv]1;1;xtrn;ytrn;p[`prf][mdls`minit;s]]]}
+    get[p[`xv]0][p[`xv]1;1;xtrn;ytrn;p[`prf][mdl`minit;s]]];
+  -1"Cross validation execution time was ",string .z.t-start;
+  r}
 
 
 // Grid search over the set of all hyperparameters outlined in code/models/hyperparams.txt
@@ -48,16 +52,18 @@ proc.gs.psearch:{[xtrn;ytrn;xtst;ytst;bm;p;typ;mdls]
   // This is used to ensure that if a grid search is done on KNN that there are sufficient,
   // data points in the validation set for all hyperparameter nearest neighbour calculations.
   spltcnt:$[p[`gs;0]in`mcsplit`pcsplit;1-p[`gs]1;(p[`gs;1]-1)%p[`gs]1]*count[xtrn]*1-p`hld;
-  if[bm in `KNeighborsClassifier`KNeighborsRegressor;
+  if[bm in`KNeighborsClassifier`KNeighborsRegressor;
     if[0<count where n:spltcnt<dict`n_neighbors;
       dict[`n_neighbors]@:where not n]];
   // Complete an appropriate grid search, returning scores for each validation fold
-  bm:first exec minit from mdls where model=bm;
+  best:first exec minit from mdls where model=bm;
   // modification of final grid search parameter required to allow modified
   // results ordering and function definition to take place
-  gsprms:get[p[`gs]0][p[`gs]1;1;xtrn;ytrn;p[`prf]bm;dict;`val`ord`scf!(p`hld;o;fn)];
+  // uses new `.ml.gs` function in `updml.q`
+  gsprms:get[p[`gs]0][p[`gs]1;1;xtrn;ytrn;p[`prf]best;dict;`val`ord`scf!(p`hld;o;fn)];
   // Extract the best hyperparameter set based on scoring function
   hyp:first key first gsprms;
+  -1"Fitting ",string[bm]," with best hyperparameter set";
   bmdl:epymdl[pykwargs hyp][`:fit][xtrn;ytrn];
   pred:bmdl[`:predict][xtst]`;
   score:fn[pred;ytst];
