@@ -9,3 +9,4 @@ SVC                        | sklearn   ;   svm            ; seed ; binary
 LinearSVC                  | sklearn   ;   svm            ; seed ; binary
 binarykeras                | keras     ;   binary         ; seed ; binary
 multikeras                 | keras     ;   multi          ; seed ; multi
+Pytorch                    | pytorch   ;   torch	  ; seed ; torch

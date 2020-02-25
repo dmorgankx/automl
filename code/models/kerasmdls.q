@@ -11,6 +11,8 @@
 // workflow, a user wishing to add their own models must augment this list to ensure
 // that this list is appropriately updated.
 i.keraslist:`regkeras`multikeras`binarykeras
+i.torchlist:`Pytorch
+i.deepmdlist:i.keraslist,i.torchlist
 
 /. r > the predicted values for a given model as applied to input data
 fitscore:{[d;s;mtype]
@@ -21,6 +23,14 @@ fitscore:{[d;s;mtype]
 
 /. r > the fit functionality used for all the vanilla keras models
 binaryfit:regfit:multifit:{[d;m]m[`:fit][npa d[0]0;d[0]1;`batch_size pykw 32;`verbose pykw 0];m}
+torchfit:{[d;m]
+ optimizer:optim[`:Adam][m[`:parameters][];pykwargs enlist[`lr]!enlist 0.9];
+ criterion:nn[`:BCEWithLogitsLoss][];
+ data_x:torch[`:from_numpy][npa[d[0]0]][`:float][];
+ data_y:torch[`:from_numpy][npa[d[0]1]][`:float][];
+ tt_xy:torch[`:utils.data][`:TensorDataset][data_x;data_y];
+ mdl:.p.get[`runmodel];
+ mdl[m;optimizer;criterion;dloader[tt_xy;pykwargs `batch_size`shuffle`num_workers!(count first d[0]0;1b;2)];10|`int$(count[d[0]0]%1000)]}
 
 /. r > the compiled keras models
 binarymdl:{[d;s;mtype]
@@ -50,10 +60,23 @@ multimdl:{[d;s;mtype]
   m[`:compile][`loss pykw "categorical_crossentropy";`optimizer pykw "rmsprop"];m}
 multipredict :{[d;m]m[`:predict_classes][npa d[1]0]`}
 
+torchmdl:{[d;s;mtype]
+ classifier:.p.get[`classifier];
+ classifier[count first d[0]0;200]}
+torchpredict:{[d;m] d_x:torch[`:from_numpy][npa[d[1]0]][`:float][];
+                    {(.p.wrap x)[`:detach][][`:numpy][][`:squeeze][]`}last torch[`:max][m[d_x];1]`}
+
 npa:.p.import[`numpy]`:array;
 seq:.p.import[`keras.models]`:Sequential;
 dns:.p.import[`keras.layers]`:Dense;
 nps:.p.import[`numpy.random][`:seed];
+.p.set[`nn;nn:.p.import[`torch.nn]]
+.p.set[`F;.p.import[`torch.nn.functional]]
+optim:.p.import[`torch.optim]
+torch:.p.import[`torch]
+dloader :.p.import[`torch.utils.data]`:DataLoader
+
+
 if[not 1~checkimport[];tf:.p.import[`tensorflow];tfs:tf$[2>"I"$first tf[`:__version__]`;[`:set_random_seed];[`:random.set_seed]]];
 
 / allow multiprocess
