@@ -11,33 +11,60 @@
 /* p     = parameters (::) produces default other changes are user dependent
 /. r     > returns date and time of run
 run:{[tb;tgt;ftype;ptype;p]
-  dtdict:`stdate`sttime!(.z.D;.z.T);
+
+  // --RUN EVERYTIME--
+  p:$[p~(::);enlist[`stop]!enlist 0w;(not`stop in key p)&99h~type p;p,enlist[`stop]!enlist 0w;p];
+  dtdict:`stdate`sttime!$[not all`stdate`sttime in key p;(.z.D;.z.T);p`stdate`sttime];
   // Extract & update the dictionary used to define the workflow
-  dict:i.updparam[tb;p;ftype],enlist[`typ]!enlist ftype;
+  dict:i.updparam[tb;p:p _/`sttime`stdate;ftype],enlist[`typ]!enlist ftype;
   // Check that the functions to overwrite default behaviour exist in process
-  i.checkfuncs[dict];
+  i.checkfuncs dict;
   // update the seed randomly if user does not specify the seed in p
-  if[`rand_val~dict[`seed];dict[`seed]:"j"$.z.t];
+  if[`rand_val~dict`seed;dict[`seed]:"j"$.z.t];
   // if required to save data construct the appropriate folders
   if[dict[`saveopt]in 1 2;spaths:i.pathconstruct[dtdict;dict`saveopt]];
   mdls:i.models[ptype;tgt;dict];
   system"S ",string dict`seed;
-  tb:prep.i.autotype[tb;ftype;dict];
-  -1 i.runout`col;
-  // This provides an encoding map which can be used in reruns of automl even
-  // if the data is no longer in the appropriate format for symbol encoding
-  encoding:prep.i.symencode[tb;10;1;dict;::];
-  prep:preproc[tb;tgt;ftype;dict];tb:prep 0;dscrb:prep 1;-1 i.runout`pre;
-  tb:$[ftype=`fresh;prep.freshcreate[tb;dict];
-       ftype=`normal;prep.normalcreate[tb;dict];
-       '`$"Feature extraction type is not currently supported"];
-  feats:get[dict[`sigfeats]][tb 0;tgt];
-  // Encode target data if target is a symbol vector
-  if[11h~type tgt;tgt:.ml.labelencode tgt];
+
+  // Print statement for rerun
+  if[dict`rerun;-1"\nRestarting pipeline after ",ssr[;"_";" "]string i.exitpoints dict`prevstop];
+
+  // --SECTION 0--
+  
+  // --ONLY RUN IF NOT RESTARTING PIPELINE--
+  if[not dict`rerun;
+    tb:prep.i.autotype[tb;ftype;dict];-1 i.runout`col;
+    // This provides an encoding map which can be used in reruns of automl even
+    // if the data is no longer in the appropriate format for symbol encoding
+    encoding:prep.i.symencode[tb;10;1;dict;::];
+    prep:preproc[tb;tgt;ftype;dict];tb:prep 0;dscrb:prep 1;
+    // Encode target data if target is a symbol vector
+    if[11h~type tgt;tgt:.ml.labelencode tgt];
+    // --BREAK--
+    $[0~dict`stop;
+      [dict[`prevstop`stop`rerun]:(0;0w;1b);
+       -1"\nPreprocessing complete, stopping pipeline.\n";:(tb;tgt;dict,dtdict)];
+       -1 i.runout`pre]];
+
+  // --SECTION 1--
+  if[(0~dict`prevstop)|not dict`rerun;
+    tb:$[ftype=`fresh;prep.freshcreate[tb;dict];
+         ftype=`normal;prep.normalcreate[tb;dict];
+         '`$"Feature extraction type is not currently supported"];
+    feats:get[dict`sigfeats][tb 0;tgt];
+    tb:feats#tb 0;
+    // --BREAK--
+    if[1~dict`stop;
+      dict[`prevstop`stop`rerun]:(1;0w;1b);
+      -1"\nFeature extraction and selection complete, stopping pipeline.\n";:(tb;tgt;dict,dtdict)]];
+
+
+  // --SECTION 2--
+
   // Apply the appropriate train/test split to the data
   // the following currently runs differently if the parameters are defined
   // in a file or through the more traditional dictionary/(::) format
-  tts:($[-11h=type dict`tts;get;]dict[`tts])[;tgt;dict`sz]tab:feats#tb 0;
+  tts:($[-11h=type dict`tts;get;]dict[`tts])[;tgt;dict`sz]tb;
   // Centralizing the table to matrix conversion makes it easier to avoid
   // repetition of this task which can be computationally expensive
   xtrn:flip value flip tts`xtrain;xtst:flip value flip tts`xtest;
@@ -45,11 +72,19 @@ run:{[tb;tgt;ftype;ptype;p]
   mdls:i.kerascheck[mdls;tts;tgt];
   // Check if Tensorflow/Keras not available for use, NN models removed
   if[1~checkimport[];mdls:?[mdls;enlist(<>;`lib;enlist `keras);0b;()]];
-  -1 i.runout`sig;-1 i.runout`slct;-1 i.runout[`tot],string[ctb:count cols tab];
+  -1 i.runout`sig;-1 i.runout`slct;-1 i.runout[`tot],string[ctb:count cols tb];
   // Run all appropriate models on the training set
   // Set numpy random seed if multiple prcoesses
   if[0<abs[system "s"];.p.import[`numpy][`:random.seed][dict`seed]];
   bm:proc.runmodels[xtrn;ytrn;mdls;cols tts`xtrain;dict;dtdict;spaths];
+  // --BREAK--
+  if[2~dict`stop;
+    -1"Appropriate models run, stopping pipeline.\n";
+    :((xtrn;xtst);(ytrn;ytst);dict,dtdict,enlist[`bm]!enlist bm)];
+
+
+  // --SECTION 3--
+
   fn:i.scfn[dict;mdls];
   // Do not run grid search on deterministic models returning score on the test set and model
   if[a:bm[1]in i.excludelist;
@@ -119,6 +154,9 @@ new:{[t;dt;tm]
        model[`:predict;<]data]];
     '`$"The current model type you are attempting to apply is not currently supported"]
   }
+
+
+i.exitpoints:(0 1 2)!`preprocessing`feature_extraction_and_selection`model_selection
 
 
 // Saves down flatfile of default dict
