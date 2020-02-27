@@ -52,6 +52,7 @@ run:{[tb;tgt;ftype;ptype;p]
          ftype=`normal;prep.normalcreate[tb;dict];
          '`$"Feature extraction type is not currently supported"];
     feats:get[dict`sigfeats][tb 0;tgt];
+    tm:tb 1;
     tb:feats#tb 0;
     // --BREAK--
     if[1~dict`stop;
@@ -105,7 +106,7 @@ run:{[tb;tgt;ftype;ptype;p]
   // Save down a pdf report summarizing the running of the pipeline
   if[2=dict`saveopt;
     -1 i.runout[`save],i.ssrsv[spaths[1]`report];
-    report_param:post.i.reportdict[ctb;bm;tb;path;(prms 1;score;dict`xv;dict`gs);spaths;dscrb];
+    report_param:post.i.reportdict[ctb;bm;tm;path;(prms 1;score;dict`xv;dict`gs);spaths;dscrb];
     if[ptype=`class;ptype:$[2<count distinct tgt;`multi_classification;`binary_classification]];
     post.report[report_param;dtdict;spaths[0]`report;ptype]];
   if[dict[`saveopt]in 1 2;

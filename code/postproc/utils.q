@@ -173,7 +173,7 @@ post.i.reportdict:{[cfeat;bm;tm;path;xvgs;fpath;dscrb]
     xvtime   :bm 3,
     bmtime   :bm 4,
     metric   :bm 5,
-    feat_time:tm 1,
+    feat_time:tm,
     gs       :xvgs 0,
     score    :xvgs 1,
     xv       :xvgs 2,
